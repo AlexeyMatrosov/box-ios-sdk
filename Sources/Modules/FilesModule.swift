@@ -387,6 +387,56 @@ public class FilesModule {
         )
     }
     
+    /// Upload a file to a specified folder.
+    ///
+    /// - Parameters:
+    ///   - fileId: The ID of the file
+    ///   - name: The name of the file. Box supports file names of 255 characters or
+    ///     less. Names containing non-printable ASCII characters, "/" or "\", names with trailing
+    ///     spaces, and the special names “.” and “..” are also not allowed.
+    ///   - performPreflightCheck: Checks whether new file version will be accepted before whole new version is uploaded.
+    ///   - completion: Returns a standard file object or an error.
+    /// - Returns: BoxUploadTask
+    @discardableResult
+    public func streamUploadVersion(
+        forFile fileId: String,
+        name: String? = nil,
+        contentModifiedAt: String? = nil,
+        stream: InputStream,
+        fileSize: Int,
+        progress: @escaping (Progress) -> Void = { _ in },
+        performPreflightCheck: Bool = false,
+        completion: @escaping Callback<File>
+    ) -> BoxUploadTask {
+        let task = BoxUploadTask()
+        task.receiveTask(
+            updateWithPreflightCheck(
+                performCheck: performPreflightCheck,
+                fileId: fileId,
+                name: name,
+                size: Int64(fileSize),
+                request: { [weak self] in
+
+                    guard let self = self else {
+                        return
+                    }
+                    task.receiveTask(
+                        self.streamUploadVersion(
+                            forFile: fileId,
+                            name: name,
+                            contentModifiedAt: contentModifiedAt,
+                            stream: stream,
+                            fileSize: fileSize,
+                            progress: progress,
+                            completion: completion
+                        )
+                    )
+                }, completion: completion
+            )
+        )
+        return task
+    }
+    
     /// Upload request without preflight check.
     @discardableResult
     private func streamUploadVersion(
