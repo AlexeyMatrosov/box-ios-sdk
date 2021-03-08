@@ -386,6 +386,39 @@ public class FilesModule {
             completion: ResponseHandler.unwrapCollection(wrapping: completion)
         )
     }
+    
+    /// Upload request without preflight check.
+    @discardableResult
+    private func streamUploadVersion(
+        forFile fileId: String,
+        name: String? = nil,
+        contentModifiedAt: String? = nil,
+        stream: InputStream,
+        fileSize: Int,
+        progress: @escaping (Progress) -> Void = { _ in },
+        completion: @escaping Callback<File>
+    ) -> BoxUploadTask {
+        var attributes: [String: Any] = [:]
+        attributes["name"] = name
+        attributes["content_modified_at"] = contentModifiedAt
+
+        var body = MultipartForm()
+        do {
+            body.appendPart(name: "attributes", contents: try JSONSerialization.data(withJSONObject: attributes))
+            body.appendFilePart(name: "file", contents: stream, length: fileSize, fileName: "UNUSED", mimeType: "application/octet-stream")
+        }
+        catch {
+            completion(.failure(BoxCodingError(message: "Error with encoding multipart from", error: error)))
+            return BoxUploadTask()
+        }
+
+        return boxClient.post(
+            url: URL.boxUploadEndpoint("/api/2.0/files/\(fileId)/content", configuration: boxClient.configuration),
+            multipartBody: body,
+            progress: progress,
+            completion: ResponseHandler.unwrapCollection(wrapping: completion)
+        )
+    }
 
     /// Upload a file to a specified folder.
     ///
